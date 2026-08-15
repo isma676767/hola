@@ -3,99 +3,73 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
 <script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
 
 <style>
-    * {
-        box-sizing: border-box;
-    }
+* {
+    box-sizing: border-box;
+}
 
-    html,
-    body {
-        margin: 0;
-        padding: 0;
-        width: 100%;
-        min-height: 100%;
-        background: transparent;
-        font-family: Arial, sans-serif;
-    }
+html,
+body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    min-height: 100%;
+    background: transparent;
+    font-family: Arial, sans-serif;
+}
 
-    #sparks {
-        width: 100%;
+#sparks {
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 10px;
+    padding: 10px;
+}
 
-        display: grid;
+.spark {
+    min-height: 48px;
+    padding: 9px 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    border: 1px solid #cfcfcf;
+    border-radius: 8px;
+    background: white;
+    font-size: 14px;
+    line-height: 1.2;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
 
-        grid-template-columns:
-            repeat(
-                auto-fit,
-                minmax(150px, 1fr)
-            );
+.spark-name {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
 
-        gap: 10px;
+.stars {
+    flex-shrink: 0;
+    white-space: nowrap;
+    letter-spacing: 1px;
+}
 
-        padding: 10px;
-    }
-
-    .spark {
-        min-height: 48px;
-
-        padding: 9px 12px;
-
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-
-        gap: 10px;
-
-        border: 1px solid #cfcfcf;
-        border-radius: 8px;
-
-        background: white;
-
-        font-size: 14px;
-        line-height: 1.2;
-
-        box-shadow:
-            0 1px 2px rgba(0, 0, 0, 0.05);
-    }
-
-    .spark-name {
-        min-width: 0;
-
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-    }
-
-    .stars {
-        flex-shrink: 0;
-
-        white-space: nowrap;
-
-        letter-spacing: 1px;
-    }
-
-    #message {
-        display: none;
-
-        padding: 12px;
-
-        text-align: center;
-
-        color: #888;
-
-        font-size: 14px;
-    }
+#message {
+    display: none;
+    padding: 12px;
+    text-align: center;
+    color: #888;
+    font-size: 14px;
+}
 </style>
 </head>
 
 <body>
 
 <div id="sparks"></div>
-
 <div id="message"></div>
-
 
 <script>
 
@@ -103,202 +77,134 @@ grist.ready({
     requiredAccess: "full"
 });
 
-
-const sparksContainer =
-    document.getElementById("sparks");
-
-const message =
-    document.getElementById("message");
-
+const sparksContainer = document.getElementById("sparks");
+const message = document.getElementById("message");
 
 let currentRunId = null;
-
+let runSparks = null;
+let sparks = null;
 
 function clearWidget() {
-
     sparksContainer.innerHTML = "";
-
     message.style.display = "none";
 }
 
-
 function showMessage(text) {
-
     sparksContainer.innerHTML = "";
-
     message.textContent = text;
-
     message.style.display = "block";
 }
 
-
 function createSpark(name, starsAmount) {
-
-    const box =
-        document.createElement("div");
-
+    const box = document.createElement("div");
     box.className = "spark";
 
+    const nameElement = document.createElement("span");
+    nameElement.className = "spark-name";
+    nameElement.textContent = name ?? "";
 
-    const nameElement =
-        document.createElement("span");
+    const starsElement = document.createElement("span");
+    starsElement.className = "stars";
 
-    nameElement.className =
-        "spark-name";
+    const amount = Number(starsAmount) || 0;
 
-    nameElement.textContent =
-        name ?? "";
-
-
-    const starsElement =
-        document.createElement("span");
-
-    starsElement.className =
-        "stars";
-
-
-    const amount =
-        Number(starsAmount) || 0;
-
-
-    starsElement.textContent =
-        "★".repeat(
-            Math.max(0, amount)
-        );
-
+    starsElement.textContent = "★".repeat(Math.max(0, amount));
 
     box.appendChild(nameElement);
-
     box.appendChild(starsElement);
 
     sparksContainer.appendChild(box);
 }
 
+async function loadData() {
+    const [runSparksTable, sparksTable] = await Promise.all([
+        grist.docApi.fetchTable("run_sparks"),
+        grist.docApi.fetchTable("sparks")
+    ]);
 
-async function updateSparks() {
+    runSparks = runSparksTable;
+    sparks = sparksTable;
+}
 
+function getSparkName(sparkId) {
+    if (!sparks || sparkId == null) {
+        return "";
+    }
+
+    const index = sparks.id.indexOf(sparkId);
+
+    if (index === -1) {
+        return "";
+    }
+
+    return sparks.spark[index] ?? "";
+}
+
+function updateSparks() {
     clearWidget();
 
-
-    if (
-        currentRunId === null ||
-        currentRunId === undefined
-    ) {
-
-        showMessage(
-            "Selecciona una Run."
-        );
-
+    if (currentRunId == null) {
+        showMessage("Selecciona una Run.");
         return;
     }
 
+    if (!runSparks || !sparks) {
+        showMessage("Cargando Sparks...");
+        return;
+    }
 
-    try {
+    let found = false;
 
+    for (let i = 0; i < runSparks.id.length; i++) {
+        const runId = runSparks.run[i];
 
-
-        const table =
-            await grist.docApi.fetchTable(
-                "run_sparks"
-            );
-
-
-        const rowCount =
-            table.id.length;
-
-
-        let found = false;
-
-
-        for (
-            let i = 0;
-            i < rowCount;
-            i++
-        ) {
-
-
-
-            const runReference =
-                table.run?.[i];
-
-
-            if (
-                String(runReference) !==
-                String(currentRunId)
-            ) {
-
-                continue;
-            }
-
-
-            found = true;
-
-
-
-            const sparkReference =
-                table.spark?.[i];
-
-
-            createSpark(
-                sparkReference,
-                table.estrellas?.[i]
-            );
+        if (String(runId) !== String(currentRunId)) {
+            continue;
         }
 
+        found = true;
 
-        if (!found) {
+        const sparkId = runSparks.spark[i];
+        const sparkName = getSparkName(sparkId);
+        const stars = runSparks.estrellas[i];
 
-            showMessage(
-                "Esta Run no tiene Sparks."
-            );
-        }
+        createSpark(sparkName, stars);
+    }
 
-
-    } catch (error) {
-
-        console.error(
-            "Error cargando run_sparks:",
-            error
-        );
-
-
-        showMessage(
-            "No se pudieron cargar las Sparks."
-        );
+    if (!found) {
+        showMessage("Esta Run no tiene Sparks.");
     }
 }
 
-
+async function refresh() {
+    try {
+        await loadData();
+        updateSparks();
+    } catch (error) {
+        console.error(error);
+        showMessage("No se pudieron cargar las Sparks.");
+    }
+}
 
 grist.onRecord(function(record) {
-
     if (!record) {
-
         currentRunId = null;
-
-        showMessage(
-            "Selecciona una Run."
-        );
-
+        clearWidget();
+        showMessage("Selecciona una Run.");
         return;
     }
 
-
-    currentRunId =
-        record.id;
-
-
-    updateSparks();
+    currentRunId = record.id;
+    refresh();
 });
-
 
 grist.onRecords(function() {
-
-    if (currentRunId !== null) {
-
-        updateSparks();
+    if (currentRunId != null) {
+        refresh();
     }
 });
+
+refresh();
 
 </script>
 
