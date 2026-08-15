@@ -74,15 +74,14 @@ body {
 <script>
 
 grist.ready({
-    requiredAccess: "full"
+    requiredAccess: "read table"
 });
 
 const sparksContainer = document.getElementById("sparks");
 const message = document.getElementById("message");
 
-let currentRunId = null;
-let runSparks = null;
-let sparks = null;
+let currentRun = null;
+let currentRecords = [];
 
 function clearWidget() {
     sparksContainer.innerHTML = "";
@@ -116,59 +115,33 @@ function createSpark(name, starsAmount) {
     sparksContainer.appendChild(box);
 }
 
-async function loadData() {
-    const results = await Promise.all([
-        grist.docApi.fetchTable("run_sparks"),
-        grist.docApi.fetchTable("sparks")
-    ]);
-
-    runSparks = results[0];
-    sparks = results[1];
-}
-
-function getSparkName(sparkId) {
-    if (!sparks || sparkId == null) {
-        return "";
-    }
-
-    const index = sparks.id.indexOf(sparkId);
-
-    if (index === -1) {
-        return "";
-    }
-
-    return sparks.spark[index] ?? "";
-}
-
-function updateSparks() {
+function updateWidget() {
     clearWidget();
 
-    if (currentRunId == null) {
+    if (!currentRun) {
         showMessage("Selecciona una Run.");
-        return;
-    }
-
-    if (!runSparks || !sparks) {
-        showMessage("Cargando Sparks...");
         return;
     }
 
     let found = false;
 
-    for (let i = 0; i < runSparks.id.length; i++) {
-        const runId = runSparks.run[i];
+    for (const record of currentRecords) {
 
-        if (String(runId) !== String(currentRunId)) {
+        const runValue = record.run;
+
+        if (
+            String(runValue) !==
+            String(currentRun.code)
+        ) {
             continue;
         }
 
         found = true;
 
-        const sparkId = runSparks.spark[i];
-        const sparkName = getSparkName(sparkId);
-        const stars = runSparks.estrellas[i];
-
-        createSpark(sparkName, stars);
+        createSpark(
+            record.spark,
+            record.estrellas
+        );
     }
 
     if (!found) {
@@ -176,32 +149,18 @@ function updateSparks() {
     }
 }
 
-async function refresh() {
-    try {
-        await loadData();
-        updateSparks();
-    } catch (error) {
-        console.error(error);
-        showMessage("No se pudieron cargar las Sparks.");
-    }
-}
-
 grist.onRecord(function(record) {
-    if (!record) {
-        currentRunId = null;
-        clearWidget();
-        showMessage("Selecciona una Run.");
-        return;
-    }
 
-    currentRunId = record.id;
-    refresh();
+    currentRun = record || null;
+
+    updateWidget();
 });
 
-grist.onRecords(function() {
-    if (currentRunId !== null) {
-        refresh();
-    }
+grist.onRecords(function(records) {
+
+    currentRecords = records || [];
+
+    updateWidget();
 });
 
 </script>
