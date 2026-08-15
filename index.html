@@ -24,7 +24,7 @@
     #sparks {
         width: 100%;
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
         gap: 10px;
         padding: 10px;
     }
@@ -40,15 +40,14 @@
         border-radius: 8px;
         background: white;
         font-size: 14px;
-        line-height: 1.2;
+        line-height: 1.3;
         box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
     }
 
     .spark-name {
         min-width: 0;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
+        overflow-wrap: break-word;
+        white-space: normal;
     }
 
     .stars {
@@ -82,6 +81,7 @@ const sparksContainer = document.getElementById("sparks");
 const message = document.getElementById("message");
 
 let currentRunId = null;
+let updateToken = 0;
 
 function clearWidget() {
     sparksContainer.innerHTML = "";
@@ -113,9 +113,12 @@ function createSpark(name, starsAmount) {
 }
 
 async function updateSparks() {
-    clearWidget();
 
-    if (currentRunId === null || currentRunId === undefined) {
+    const myToken = ++updateToken;
+    const requestedRunId = currentRunId;
+
+    if (requestedRunId === null || requestedRunId === undefined) {
+        clearWidget();
         showMessage("Selecciona una Run.");
         return;
     }
@@ -125,11 +128,15 @@ async function updateSparks() {
         const table = await grist.docApi.fetchTable("Run_sparks");
         const sparksTable = await grist.docApi.fetchTable("Sparks");
 
+        if (myToken !== updateToken) return;
+
         // Mapa rowId -> nombre real del spark
         const sparkNames = {};
         for (let j = 0; j < sparksTable.id.length; j++) {
             sparkNames[sparksTable.id[j]] = sparksTable.spark[j];
         }
+
+        clearWidget();
 
         const rowCount = table.id.length;
         let found = false;
@@ -137,7 +144,7 @@ async function updateSparks() {
         for (let i = 0; i < rowCount; i++) {
             const runReference = table.run?.[i];
 
-            if (String(runReference) !== String(currentRunId)) {
+            if (String(runReference) !== String(requestedRunId)) {
                 continue;
             }
 
@@ -154,7 +161,9 @@ async function updateSparks() {
         }
 
     } catch (error) {
+        if (myToken !== updateToken) return;
         console.error("Error cargando run_sparks:", error);
+        clearWidget();
         showMessage("No se pudieron cargar las Sparks.");
     }
 }
