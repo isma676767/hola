@@ -117,13 +117,13 @@ function createSpark(name, starsAmount) {
 }
 
 async function loadData() {
-    const [runSparksTable, sparksTable] = await Promise.all([
+    const results = await Promise.all([
         grist.docApi.fetchTable("run_sparks"),
         grist.docApi.fetchTable("sparks")
     ]);
 
-    runSparks = runSparksTable;
-    sparks = sparksTable;
+    runSparks = results[0];
+    sparks = results[1];
 }
 
 function getSparkName(sparkId) {
@@ -199,12 +199,10 @@ grist.onRecord(function(record) {
 });
 
 grist.onRecords(function() {
-    if (currentRunId != null) {
+    if (currentRunId !== null) {
         refresh();
     }
 });
-
-refresh();
 
 </script>
 
