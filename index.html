@@ -63,7 +63,7 @@ body {
 <div id="message"></div>
 <script>
 grist.ready({
-    requiredAccess: "read table"
+    requiredAccess: "full"
 });
 
 
@@ -108,6 +108,7 @@ function updateWidget() {
         return;
     }
 
+
     let found = false;
     for (const record of currentRecords) {
         const runRowId = record.run;
@@ -115,6 +116,7 @@ function updateWidget() {
             continue;
         }
         found = true;
+
 
         const sparkRowId = record.spark;
         const sparkName = sparkNames[sparkRowId] ?? `#${sparkRowId}`;
