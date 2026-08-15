@@ -113,9 +113,7 @@ function createSpark(name, starsAmount) {
 }
  
 async function updateSparks() {
-    // Token propio de esta llamada: si otra llamada más nueva empieza
-    // antes de que esta termine, esta se descarta al volver del await
-    // (evita duplicados y resultados viejos pisando a los nuevos).
+
     const myToken = ++updateToken;
     const requestedRunId = currentRunId;
  
@@ -126,12 +124,11 @@ async function updateSparks() {
     }
  
     try {
-        // OJO: los Table ID en Grist son exactamente como aparecen en
-        // "Datos Brutos" -> "Table ID": Run_sparks y Sparks (con mayúscula).
+
         const table = await grist.docApi.fetchTable("Run_sparks");
         const sparksTable = await grist.docApi.fetchTable("Sparks");
  
-        if (myToken !== updateToken) return; // llegó una llamada más nueva, descartar
+        if (myToken !== updateToken) return; 
  
         // Mapa rowId -> nombre real del spark
         const sparkNames = {};
